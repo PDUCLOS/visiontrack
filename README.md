@@ -3,6 +3,10 @@
 Détection, tracking et estimation de distance de personnes en temps réel, sur GPU NVIDIA grand public.
 **100 % local** : aucune image ne quitte le site.
 
+[![Vidéo de démo VisionTrack — cliquer pour la regarder](docs/images/demo_poster.jpg)](https://github.com/PDUCLOS/visiontrack/releases/download/v0.1.0/visiontrack_demo_web.mp4)
+
+▶ **[Voir la vidéo de démo (1 min 57)](https://github.com/PDUCLOS/visiontrack/releases/download/v0.1.0/visiontrack_demo_web.mp4)** : pipeline, 8 exemples (suivi, distance, foule dense, nuit, comptage, zone interdite, heatmap), réglages et comparatif rapide / précision. [Version 1080p](https://github.com/PDUCLOS/visiontrack/releases/download/v0.1.0/visiontrack_demo.mp4) · [Release v0.1.0](https://github.com/PDUCLOS/visiontrack/releases/tag/v0.1.0)
+
 ![Démo VisionTrack — rue piétonne de Chelmsford](docs/images/demo_chelmsford.png)
 
 *Mesuré sur une RTX 4070 Ti SUPER, en 1280×720 : environ 28 à 30 images/s pour l'ensemble du traitement (détection RF-DETR medium, tracking, profondeur, distances, zones et rendu).*
