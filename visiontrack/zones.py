@@ -23,8 +23,11 @@ class Zones:
             self.polygons.append((poly["name"], zone))
         self.line_annot = sv.LineZoneAnnotator(thickness=2, text_scale=0.6, display_in_count=False,
                                                display_out_count=False)
-        self.poly_annots = [sv.PolygonZoneAnnotator(zone=z, color=sv.Color.RED, thickness=2,
-                                                    display_in_zone_count=False)
+        # zone au repos : contour orange ; zone occupée : remplissage rouge (alerte)
+        self.poly_annots = [(sv.PolygonZoneAnnotator(zone=z, color=sv.Color.from_hex("#FFA500"), thickness=2,
+                                                     display_in_zone_count=False),
+                             sv.PolygonZoneAnnotator(zone=z, color=sv.Color.RED, thickness=3,
+                                                     display_in_zone_count=False, opacity=0.35))
                             for _, z in self.polygons]
 
     def update(self, det: sv.Detections) -> dict:
@@ -41,13 +44,14 @@ class Zones:
     def annotate(self, frame: np.ndarray) -> np.ndarray:
         for _, line in self.lines:
             frame = self.line_annot.annotate(frame, line_counter=line)
-        for annot in self.poly_annots:
-            frame = annot.annotate(frame)
+        for (_, zone), (idle, alert) in zip(self.polygons, self.poly_annots):
+            frame = (alert if zone.current_count else idle).annotate(frame)
         return frame
 
     def summary(self) -> list[str]:
         out = [f"Ligne {name} : {l.in_count} entrees / {l.out_count} sorties" for name, l in self.lines]
-        out += [f"Zone {name} : {z.current_count} personne(s)" for name, z in self.polygons]
+        out += [f"ALERTE zone {name} : {z.current_count} personne(s)" if z.current_count
+                else f"Zone {name} : libre" for name, z in self.polygons]
         return out
 
     def counts(self) -> dict:

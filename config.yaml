@@ -41,11 +41,13 @@ render:
   boxes: true
   labels: true
   traces: true
-  trace_length: 40
+  trace_length: 90     # en images (≈ 1,5 s à 60 i/s)
   depth_inset: true     # carte de profondeur en incrustation
   inset_scale: 0.22
+  inset_position: bottom_right  # bottom_right | top_right
   heatmap: false        # carte de fréquentation
   fps: true
+  distance_thresholds_m: [3.0, 8.0]  # couleurs : rouge < 3 m, orange < 8 m, vert au-delà
 
 # Coordonnées relatives (0–1) à la taille de l'image
 zones:

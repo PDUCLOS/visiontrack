@@ -70,7 +70,7 @@ Format : capture de l'aperçu VisionTrack, voix off ou sous-titres. Durée total
 | 3 | 16–28 s (12 s) | Incrustation de la **carte de profondeur** ; les étiquettes affichent les **distances** en mètres | « Distance estimée par fusion géométrie + profondeur » |
 | 4 | 28–40 s (12 s) | Une **ligne de comptage** : le compteur entrées/sorties s'incrémente à chaque passage | « Comptage des entrées / sorties » |
 | 5 | 40–52 s (12 s) | Une personne entre dans la **zone interdite** : la zone passe en rouge, **alerte** affichée | « Zone interdite : alerte immédiate » |
-| 6 | 52–60 s (8 s) | Gros plan sur le **compteur FPS** ; option heatmap de fréquentation en fondu | « 30+ images/s sur une RTX 4070 Ti SUPER — détection, suivi et distance » |
+| 6 | 52–60 s (8 s) | Gros plan sur le **compteur FPS** ; option heatmap de fréquentation en fondu | « ≈ 28 images/s sur une RTX 4070 Ti SUPER — détection, suivi et distance » |
 | 7 | 60–68 s (8 s) | Schéma `local_vs_cloud` : flèche d'upload barrée à gauche, PC local sur le réseau à droite | « Pas de cloud, pas d'abonnement par caméra, conforme RGPD par conception » |
 | 8 | 68–75 s (7 s) | **Carte de fin** sur fond uni, logo et contact | « **100 % local — vos images ne quittent jamais votre site** » · Patrice Duclos, Lyon |
 

@@ -19,7 +19,8 @@ from .sources import open_source
 from .zones import Zones
 
 
-def run(cfg: dict) -> Path | None:
+def run(cfg: dict) -> dict:
+    """Traite la source et renvoie {"video": chemin MP4 ou None, "jsonl": chemin ou None, "fps": vitesse, "frames": n}."""
     cap, name = open_source(cfg["source"])
     if not cap.isOpened():
         raise RuntimeError(f"Impossible d'ouvrir la source : {cfg['source']}")
@@ -41,14 +42,19 @@ def run(cfg: dict) -> Path | None:
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     detector = build_detector(cfg["detector"])
-    tracker = ByteTrackTracker(frame_rate=src_fps, **cfg["tracker"])
+    tracker_cfg = dict(cfg["tracker"])
+    # le tracker ne doit pas rejeter des détections que le détecteur a volontairement gardées
+    conf = cfg["detector"]["confidence"]
+    tracker_cfg["track_activation_threshold"] = min(tracker_cfg["track_activation_threshold"], conf)
+    tracker_cfg["high_conf_det_threshold"] = min(tracker_cfg.get("high_conf_det_threshold", 0.6), conf + 0.15)
+    tracker = ByteTrackTracker(frame_rate=src_fps, **tracker_cfg)
     distance = DistanceEstimator(cfg["distance"], (w, h), device)
     zones = Zones(cfg.get("zones"), (w, h))
     renderer = Renderer(cfg["render"], zones)
 
     out_dir = Path(cfg["output"]["dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
-    stem = f"{name}_{cfg['detector']['backend']}_{cfg['distance']['method']}"
+    stem = cfg["output"].get("name") or f"{name}_{cfg['detector']['backend']}_{cfg['distance']['method']}"
     writer = (cv2.VideoWriter(str(out_dir / f"{stem}.mp4"), cv2.VideoWriter_fourcc(*"mp4v"), src_fps,
                               renderer.output_size(w, h))
               if cfg["output"]["video"] else None)
@@ -97,7 +103,9 @@ def run(cfg: dict) -> Path | None:
         cv2.destroyAllWindows()
 
     print(f"{idx} images traitées — vitesse moyenne du pipeline ~ {fps_ema:.1f} FPS")
-    return out_dir / f"{stem}.mp4" if writer else None
+    return {"video": out_dir / f"{stem}.mp4" if writer else None,
+            "jsonl": out_dir / f"{stem}.jsonl" if jsonl else None,
+            "fps": fps_ema, "frames": idx}
 
 
 def _resize(frame: np.ndarray, width: int | None) -> np.ndarray:

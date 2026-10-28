@@ -11,3 +11,4 @@ pyyaml
 tqdm
 # Optionnel, backend YOLO (licence AGPL-3.0) :
 # ultralytics
+gradio

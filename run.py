@@ -37,8 +37,8 @@ def main():
         cfg["output"]["show"] = True
 
     out = run(cfg)
-    if out:
-        print(f"Vidéo annotée : {out}")
+    if out["video"]:
+        print(f"Vidéo annotée : {out['video']}")
 
 
 if __name__ == "__main__":
