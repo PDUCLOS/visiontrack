@@ -1,0 +1,13 @@
+# PyTorch CUDA : installer d'abord
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+rfdetr
+supervision
+trackers
+transformers
+accelerate
+yt-dlp
+opencv-python
+pyyaml
+tqdm
+# Optionnel, backend YOLO (licence AGPL-3.0) :
+# ultralytics

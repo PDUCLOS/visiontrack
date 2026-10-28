@@ -1,0 +1,58 @@
+# VisionTrack — configuration de la démo
+# Pour adapter le projet à un client : on modifie ce fichier, pas le code.
+
+# Source vidéo : URL YouTube, chemin de fichier, index webcam (0, 1…) ou flux rtsp://
+source: "https://www.youtube.com/watch?v=Zeew8NpJb50"  # Chelmsford High Street, CC BY
+start_seconds: 0        # début de l'extrait
+max_seconds: 30         # durée traitée (null = toute la vidéo)
+resize_width: 1280      # redimensionne l'image avant traitement (null = taille d'origine)
+
+output:
+  dir: outputs
+  video: true           # MP4 annoté
+  json: true            # une ligne JSON par image (pistes, distances, zones)
+  show: false           # fenêtre de prévisualisation en direct
+
+detector:
+  backend: rfdetr       # rfdetr (Apache 2.0) | yolo (Ultralytics, AGPL-3.0)
+  model: medium         # rfdetr : nano | small | medium | base | large — yolo : yolo26s.pt…
+  classes: [person]     # noms de classes COCO à garder
+  confidence: 0.45
+
+tracker:
+  track_activation_threshold: 0.45
+  lost_track_buffer: 45          # nb d'images pendant lesquelles une piste perdue est conservée
+  minimum_iou_threshold: 0.1
+  high_conf_det_threshold: 0.6
+  minimum_consecutive_frames: 3  # évite les ID fantômes
+
+distance:
+  method: fusion        # pinhole | depth | fusion | none
+  person_height_m: 1.70 # taille moyenne utilisée par la méthode géométrique
+  horizontal_fov_deg: 65 # champ de vision horizontal supposé de la caméra
+  smoothing: 0.25       # lissage exponentiel par piste (0 = aucun, 1 = figé)
+  # relatif (Apache 2.0), recalé en mètres par la méthode géométrique
+  depth_model: depth-anything/Depth-Anything-V2-Small-hf
+  depth_input_size: 392 # petit côté de l'image envoyée au modèle de profondeur (multiple de 14)
+  depth_every_n_frames: 2  # la profondeur change peu d'une image à l'autre
+
+render:
+  layout: inset         # inset (incrustation) | side_by_side (vidéo + profondeur côte à côte)
+  boxes: true
+  labels: true
+  traces: true
+  trace_length: 40
+  depth_inset: true     # carte de profondeur en incrustation
+  inset_scale: 0.22
+  heatmap: false        # carte de fréquentation
+  fps: true
+
+# Coordonnées relatives (0–1) à la taille de l'image
+zones:
+  lines:
+    - name: passage
+      start: [0.05, 0.75]
+      end: [0.95, 0.75]
+  polygons: []
+  #  - name: zone_interdite
+  #    points: [[0.6, 0.5], [0.95, 0.5], [0.95, 0.95], [0.6, 0.95]]
