@@ -1,4 +1,6 @@
-"""Génère la vidéo de démo VisionTrack pour le site freelance (1920×1080, 30 i/s, H.264).
+"""Génère les vidéos de démo VisionTrack pour le site freelance (1920×1080, 30 i/s, H.264).
+
+    python demo/make_demo.py --profile trafic   # démo véhicules : vitesse, excès, contresens, comptage
 
 Montage : titre → pipeline → 5 scènes (suivi, distance, comptage, zone interdite, heatmap)
 → réglages → comparatif réglage rapide / précision → conclusion « 100 % local ».
@@ -171,11 +173,14 @@ def blend(frame: np.ndarray, overlay_rgba: np.ndarray) -> np.ndarray:
 
 # ---------------------------------------------------------------- cartes animées
 
+TITLE_SUB = ["Détection, suivi et distance de personnes en temps réel"]
+
+
 def card_title(t: float) -> Image.Image:
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img)
     centered(d, 330, "VisionTrack", font(130, True), FG)
-    centered(d, 500, "Détection, suivi et distance de personnes en temps réel", font(44), MUTED)
+    centered(d, 500, TITLE_SUB[0], font(44), MUTED)
     if t > 1.0:
         tag = "100 % local  ·  GPU NVIDIA grand public  ·  aucune image dans le cloud"
         f = font(34, True)
@@ -373,7 +378,7 @@ def count_frames(path: Path) -> int:
 
 
 def scene_frames(scene: dict, res: dict):
-    overlay = lower_third(scene["title"], scene["subtitle"], CREDITS.get(scene["cfg"]["source"]))
+    overlay = lower_third(scene["title"], scene["subtitle"], scene.get("credit") or CREDITS.get(scene["cfg"]["source"]))
     n = count_frames(res["video"])
     for i, frame in enumerate(read_frames(res["video"])):
         canvas = np.zeros((H, W, 3), np.uint8)
@@ -419,13 +424,65 @@ def card_frames(fn, seconds: float):
         yield fade(last, i, n)
 
 
+# ---------------------------------------------------------------- démo trafic
+
+TRAFFIC_CREDITS = {
+    "MNn9qKG2UFI": "Vidéo : « 4K Road traffic video for object detection and tracking » — Karol Majek, licence CC BY",
+    "W6hROZjQlEA": "Vidéo : « Multi Lane Intersection with Traffic » — StockVid, licence CC BY",
+    "JSBJskCT_-w": "Vidéo : « Cars Roundabout Rondo 4K » — Copyright Free Videos, licence CC BY",
+    "BjF9vlJA7CY": "Vidéo : « Oslo Norway Footage Of Overpass On Highway » — Culture Snap, licence CC BY",
+}
+
+
+def traffic_scenes() -> list[dict]:
+    """Scènes de la démo véhicules, construites à partir des essais « Trafic » de l'interface (mêmes réglages)."""
+    import app  # réglages des essais : calibration, voies, seuils
+
+    def scene(name, preset, start, seconds, title, subtitle):
+        p = app.PRESETS[preset]
+        cfg = app.build_cfg(app.preset_source(preset), start, seconds, False, p.get("model", "medium"),
+                            p.get("conf", 0.45), 1280, p.get("method", "fusion"), 65, 1.7, p["traces"], p["layout"],
+                            p["heatmap"], p["line"][0], p["line"][1], p["zone"][0], p["zone"][1], p["profile"],
+                            p.get("limit", 0), p.get("lanes", False), p.get("invert", False), p.get("speed"),
+                            p.get("render"))
+        return {"kind": "scene", "name": name, "title": title, "subtitle": subtitle, "cfg": cfg,
+                "credit": TRAFFIC_CREDITS[p["yt"]], "full": True}
+
+    names = [n for n in app.PRESETS if n.startswith("Trafic")]
+    return [
+        {"kind": "title", "seconds": 4.5},
+        {"kind": "clip", "path": "pipeline_trafic.mp4"},
+        scene("t1_vitesse", names[0], 20, 12, "Vitesse de chaque véhicule",
+              "Calibrée sur le marquage au sol : 2 voies de 3,5 m — comptage et débit sur la ligne blanche"),
+        scene("t2_exces", names[1], 32, 10, "Excès de vitesse",
+              "Vitesse maximale réglable (ici 30 km/h pour la démonstration) : alerte confirmée après 0,7 s"),
+        scene("t3_contresens", names[2], 100, 10, "Contresens",
+              "Sens autorisé défini par voie (flèches) — simulation : sens inversé pour déclencher l'alerte"),
+        scene("t4_carrefour", names[3], 0, 12, "Carrefour vu du ciel",
+              "Comptage et vitesse de dizaines de véhicules à la fois, modèle « large » adapté à la vue zénithale"),
+        scene("t5_rondpoint", names[4], 0, 12, "Rond-point : fréquentation",
+              "La carte de chaleur montre les trajectoires les plus empruntées"),
+        scene("t6_voie_rapide", names[5], 5, 12, "Voie rapide, sans calibration",
+              "Vitesse automatique à partir des distances (approchée) — limite à 70 km/h"),
+        {"kind": "hardware", "seconds": 10},
+        {"kind": "outro", "seconds": 7},
+    ]
+
+
 # ---------------------------------------------------------------- montage
 
 def main():
+    global SCENES
     ap = argparse.ArgumentParser()
     ap.add_argument("--force", action="store_true", help="recalcule toutes les scènes")
-    ap.add_argument("--out", default=str(OUT / "visiontrack_demo.mp4"))
+    ap.add_argument("--profile", choices=["personnes", "trafic"], default="personnes")
+    ap.add_argument("--out")
     args = ap.parse_args()
+    if args.profile == "trafic":
+        SCENES = traffic_scenes()
+        TITLE_SUB[0] = "Véhicules : détection, vitesse, excès, contresens et comptage en temps réel"
+    args.out = args.out or str(OUT / ("visiontrack_trafic_demo.mp4" if args.profile == "trafic"
+                                      else "visiontrack_demo.mp4"))
 
     base = yaml.safe_load(open(ROOT / "config.yaml", encoding="utf-8"))
     (OUT / "scenes").mkdir(parents=True, exist_ok=True)
@@ -434,7 +491,8 @@ def main():
     results = {}
     for s in SCENES:
         if s["kind"] == "scene":
-            results[s["name"]] = compute(s["name"], s["cfg"], base, args.force)
+            # une scène « full » porte déjà sa configuration complète (profil trafic de l'interface)
+            results[s["name"]] = compute(s["name"], s["cfg"], {} if s.get("full") else base, args.force)
         elif s["kind"] == "compare":
             results[s["name"]] = (compute(s["name"] + "_gauche", s["left"]["cfg"], base, args.force),
                                   compute(s["name"] + "_droite", s["right"]["cfg"], base, args.force))
