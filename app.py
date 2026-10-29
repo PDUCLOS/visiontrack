@@ -26,6 +26,10 @@ OUT_DIR = ROOT / "outputs" / "app"
 VIDEOS = ROOT / "data" / "videos"
 FEEDBACK_FILE = ROOT / "feedback" / "feedback.jsonl"
 BASE = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
+TRAFFIC = yaml.safe_load((ROOT / "config_trafic.yaml").read_text(encoding="utf-8"))
+PROFILES = {"Personnes": BASE, "Trafic (véhicules + piétons)": TRAFFIC}
+FR = {"person": "personnes", "car": "voitures", "truck": "camions", "bus": "bus", "motorcycle": "motos",
+      "bicycle": "vélos"}
 STOP = threading.Event()  # bouton « Arrêter » : démo locale, une analyse à la fois
 
 USE_CASES = ["Retail / fréquentation", "Sécurité / zones interdites", "Événementiel / foules",
@@ -33,6 +37,20 @@ USE_CASES = ["Retail / fréquentation", "Sécurité / zones interdites", "Évén
 
 NO_LINE = (False, [0.05, 0.75, 0.95, 0.75])
 NO_ZONE = (False, [0.6, 0.5, 0.95, 0.5, 0.95, 0.95, 0.6, 0.95])
+
+TRAFFIC_P = "Trafic (véhicules + piétons)"
+HUD_RIGHT = {"hud_position": "right"}
+# Varsovie, passage supérieur : 2 voies de 3,5 m (7 m) sur ≈ 28 m entre les deux rangées de référence,
+# estimés à partir du marquage et de la perspective. Les deux chaussées roulent vers la caméra (bas de l'image).
+WARSAW = {
+    "calibration": {"image_points": [[0.255, 0.10], [0.355, 0.10], [0.39, 0.45], [0.185, 0.45]],
+                    "width_m": 7.0, "length_m": 28.0},
+    "lanes": [{"name": "gauche", "points": [[0.25, 0.03], [0.36, 0.03], [0.345, 1.0], [0.0, 1.0]], "direction": [0, 1]},
+              {"name": "centre", "points": [[0.37, 0.05], [0.47, 0.05], [0.58, 1.0], [0.42, 1.0]], "direction": [0, 1]}],
+}
+# Carrefour vu du ciel : vue zénithale, échelle ≈ 8,3 px/m en 1280 px (largeur d'une voiture ≈ 1,8 m)
+CROSSROADS = {"calibration": {"image_points": [[0.40, 0.30], [0.60, 0.30], [0.60, 0.70], [0.40, 0.70]],
+                              "width_m": 30.8, "length_m": 34.7}}
 
 # Vidéos d'essai (CC BY) : chaque essai règle l'extrait, l'affichage, la ligne et la zone.
 # Si la vidéo n'est pas encore en cache dans data/videos, elle est téléchargée depuis YouTube au premier lancement.
@@ -64,6 +82,28 @@ PRESETS = {
     "Cas difficile — personnes masquées par une table (Porto)": dict(
         yt="XfdW6eRyaOI", start=40, seconds=15, layout="inset", traces=True, heatmap=False,
         line=NO_LINE, zone=NO_ZONE),
+    # ---- trafic routier (profil véhicules)
+    "Trafic — vitesse et comptage (Varsovie, vitesse calibrée)": dict(
+        yt="MNn9qKG2UFI", start=20, seconds=30, layout="inset", traces=True, heatmap=False, profile=TRAFFIC_P,
+        limit=50, lanes=True, speed=WARSAW, render=HUD_RIGHT, line=(True, [0.0, 0.62, 0.58, 0.62]), zone=NO_ZONE),
+    "Trafic — excès de vitesse (Varsovie, limite fixée à 30 km/h)": dict(
+        yt="MNn9qKG2UFI", start=20, seconds=30, layout="inset", traces=True, heatmap=False, profile=TRAFFIC_P,
+        limit=30, lanes=False, speed=WARSAW, render=HUD_RIGHT, line=NO_LINE, zone=NO_ZONE),
+    "Trafic — contresens (Varsovie, simulation : sens autorisé inversé)": dict(
+        yt="MNn9qKG2UFI", start=100, seconds=30, layout="inset", traces=True, heatmap=False, profile=TRAFFIC_P,
+        limit=50, lanes=True, invert=True, speed=WARSAW, render=HUD_RIGHT, line=NO_LINE, zone=NO_ZONE),
+    "Trafic — carrefour vu du ciel (comptage et vitesse)": dict(
+        yt="W6hROZjQlEA", start=0, seconds=30, layout="inset", traces=True, heatmap=False, profile=TRAFFIC_P,
+        model="large", conf=0.25, method="none",  # vue zénithale : le modèle voit surtout des toits de voitures
+        render={"depth_inset": False},
+        limit=50, lanes=False, speed=CROSSROADS, line=(True, [0.45, 0.80, 0.61, 0.80]), zone=NO_ZONE),
+    "Trafic — rond-point vu du ciel (comptage et fréquentation)": dict(
+        yt="JSBJskCT_-w", start=0, seconds=17, layout="inset", traces=True, heatmap=True, profile=TRAFFIC_P,
+        model="large", conf=0.30, method="none", render={"depth_inset": False},
+        limit=0, lanes=False, speed={"enabled": False}, line=NO_LINE, zone=NO_ZONE),
+    "Trafic — voie rapide (Oslo, vitesse automatique sans calibration)": dict(
+        yt="BjF9vlJA7CY", start=0, seconds=40, layout="inset", traces=True, heatmap=False, profile=TRAFFIC_P,
+        limit=70, lanes=False, speed={}, render=HUD_RIGHT, line=(True, [0.0, 0.85, 0.66, 0.85]), zone=NO_ZONE),
 }
 
 CSS = """
@@ -86,9 +126,10 @@ def preset_source(name: str) -> str:
 # --------------------------------------------------------------------------- traitement
 
 def build_cfg(source, start, seconds, realtime, model, conf, width, method, fov, height, traces, layout,
-              heatmap, line_on, line_pts, zone_on, zone_pts) -> dict:
-    """Fusionne les réglages de l'interface dans la config par défaut (config.yaml)."""
-    cfg = copy.deepcopy(BASE)
+              heatmap, line_on, line_pts, zone_on, zone_pts, profile="Personnes", limit=0, lanes_on=False,
+              invert=False, preset_speed=None, preset_render=None) -> dict:
+    """Fusionne les réglages de l'interface dans le profil choisi (config.yaml ou config_trafic.yaml)."""
+    cfg = copy.deepcopy(PROFILES.get(profile, BASE))
     cfg["source"] = source
     cfg["start_seconds"] = float(start)
     cfg["max_seconds"] = float(seconds)
@@ -108,6 +149,16 @@ def build_cfg(source, start, seconds, realtime, model, conf, width, method, fov,
         polygons.append({"name": "zone_interdite",
                          "points": [[zone_pts[i], zone_pts[i + 1]] for i in range(0, 8, 2)]})
     cfg["zones"] = {"lines": lines, "polygons": polygons}
+    if profile != "Personnes":
+        speed = {**cfg.get("speed", {}), **(preset_speed or {})}
+        speed["limit_kmh"] = float(limit) if limit else None
+        lanes = copy.deepcopy(speed.get("lanes") or []) if lanes_on else []
+        for lane in lanes:
+            if invert:  # simulation de contresens : on inverse le sens autorisé
+                lane["direction"] = [-v for v in lane["direction"]]
+        speed["lanes"] = lanes
+        cfg["speed"] = speed
+        cfg["render"].update(preset_render or {})
     return cfg
 
 
@@ -126,8 +177,21 @@ def live_stats(infos: dict | None, status: str) -> str:
     if not infos:
         return f"**{status}**"
     total = f" / {infos['total']}" if infos.get("total") else ""
-    md = [f"**{status}** — image {infos['frame']}{total} · **{infos['fps'] or 0:.0f} images/s**",
-          f"- Personnes à l'image : **{infos['people']}**"]
+    md = [f"**{status}** — image {infos['frame']}{total} · **{infos['fps'] or 0:.0f} images/s**"]
+    classes = infos.get("classes") or {}
+    if len(classes) > 1 or (classes and "person" not in classes):
+        md.append("- À l'image : " + " · ".join(f"**{k} {FR.get(c, c)}**" for c, k in classes.items()))
+    else:
+        md.append(f"- Personnes à l'image : **{infos['people']}**")
+    if infos.get("mean_speed_kmh") is not None:
+        md.append(f"- Vitesse moyenne des véhicules : **{infos['mean_speed_kmh']:.0f} km/h**")
+    if infos.get("flow_per_min") is not None:
+        md.append(f"- Débit : **{infos['flow_per_min']:.0f} véhicules/min**")
+    if infos.get("speed_limit"):
+        md.append(f"- Excès de vitesse (> {infos['speed_limit']:g} km/h) : **{len(infos['speeding'])} en ce moment, "
+                  f"{infos['speeding_total']} au total**")
+    if infos.get("wrong_way"):
+        md.append(f"- **ALERTE CONTRESENS : {len(infos['wrong_way'])} véhicule(s)**")
     if infos["closest_m"] is not None:
         md.append(f"- Personne la plus proche : **{infos['closest_m']:.1f} m**")
     for name, c in infos["lines"].items():
@@ -144,22 +208,47 @@ def summarize(jsonl: Path, fps: float, frames: int) -> str:
     dists = [t["distance_m"] for r in rows for t in r["tracks"] if t["distance_m"] is not None]
     ids = {t["id"] for r in rows for t in r["tracks"]}
     md = ["### Résumé de l'analyse",
-          f"- **Vitesse moyenne** : {fps:.1f} images/s",
+          f"- **Vitesse de traitement** : {fps:.1f} images/s",
           f"- **Images analysées** : {frames}",
-          f"- **Personnes par image** : {sum(counts) / len(counts):.1f} en moyenne, {max(counts)} au maximum",
-          f"- **Personnes différentes suivies** : {len(ids)}"]
+          f"- **Objets par image** : {sum(counts) / len(counts):.1f} en moyenne, {max(counts)} au maximum",
+          f"- **Objets différents suivis** : {len(ids)}"]
     for c in (rows[-1]["lines"] if rows else {}).values():
         md.append(f"- **Ligne de comptage** : {c['in']} entrées / {c['out']} sorties")
     if rows and rows[0]["zones"]:
         alerts = sum(1 for r in rows if any(r["zones"].values()))
         md.append(f"- **Alertes zone interdite** : {alerts} image(s) avec au moins une personne dans la zone")
-    md.append(f"- **Personne la plus proche** : {min(dists):.1f} m" if dists
+    vehicles: dict[int, dict] = {}
+    for r in rows:
+        for t in r["tracks"]:
+            if t.get("class", "person") != "person":
+                v = vehicles.setdefault(t["id"], {"class": t["class"], "speeds": [], "speeding": False, "wrong": False})
+                if t.get("speed_kmh"):
+                    v["speeds"].append(t["speed_kmh"])
+                v["speeding"] |= bool(t.get("speeding"))
+                v["wrong"] |= bool(t.get("wrong_way"))
+    if vehicles:
+        by_class: dict[str, int] = {}
+        for v in vehicles.values():
+            by_class[v["class"]] = by_class.get(v["class"], 0) + 1
+        md.append("- **Véhicules suivis** : " + ", ".join(f"{k} {FR.get(c, c)}" for c, k in by_class.items()))
+        medians = [sorted(v["speeds"])[len(v["speeds"]) // 2] for v in vehicles.values() if len(v["speeds"]) >= 5]
+        if medians:
+            md.append(f"- **Vitesse des véhicules** : {sum(medians) / len(medians):.0f} km/h en moyenne, "
+                      f"{max(medians):.0f} km/h au maximum (vitesse médiane de chaque véhicule)")
+        if any("speeding" in t for r in rows[:50] for t in r["tracks"]):  # vitesse mesurée sur cet essai
+            md.append(f"- **Excès de vitesse** : {sum(v['speeding'] for v in vehicles.values())} véhicule(s)")
+        if any(v["wrong"] for v in vehicles.values()) or (rows and any(t.get("wrong_way") is not None
+                                                                         for r in rows[:1] for t in r["tracks"])):
+            md.append(f"- **Contresens** : {sum(v['wrong'] for v in vehicles.values())} véhicule(s)")
+    people = [d for r in rows for t in r["tracks"] if t.get("class", "person") == "person"
+              for d in [t["distance_m"]] if d is not None]
+    md.append(f"- **Personne la plus proche** : {min(people):.1f} m" if people
               else "- **Personne la plus proche** : non disponible")
     return "\n".join(md)
 
 
 def analyse(source_type, preset, url, upload, cam, start, seconds, realtime, model, conf, width, method, fov, height,
-            traces, layout, heatmap, line_on, lx1, ly1, lx2, ly2, zone_on, *zone_pts):
+            traces, layout, heatmap, profile, limit, lanes_on, invert, line_on, lx1, ly1, lx2, ly2, zone_on, *zone_pts):
     """Lance le vrai pipeline dans un fil séparé et diffuse l'image annotée en direct.
 
     Sorties successives : (image en direct, statistiques, vidéo finale, fichier JSONL, réglages utilisés).
@@ -174,12 +263,16 @@ def analyse(source_type, preset, url, upload, cam, start, seconds, realtime, mod
         source = (url or "").strip()
     if not source:
         raise gr.Error("Indiquez une source : vidéo d'essai, URL YouTube, fichier vidéo ou webcam.")
+    from_preset = source_type == "Vidéo d'essai"
+    p = PRESETS[preset] if from_preset else {}
     cfg = build_cfg(source, 0 if source_type == "Webcam" else start, seconds, realtime, model, conf, width,
-                    method, fov, height, traces, layout, heatmap, line_on, (lx1, ly1, lx2, ly2), zone_on, zone_pts)
+                    method, fov, height, traces, layout, heatmap, line_on, (lx1, ly1, lx2, ly2), zone_on, zone_pts,
+                    profile, limit, lanes_on, invert, p.get("speed"), p.get("render"))
     used = {"source_type": source_type, "preset": preset if source_type == "Vidéo d'essai" else None,
             "start": start, "seconds": seconds, "realtime": realtime, "model": model, "confidence": conf,
             "width": width, "distance": method, "fov": fov, "person_height": height, "traces": traces,
-            "layout": layout, "heatmap": heatmap, "lines": cfg["zones"]["lines"], "polygons": cfg["zones"]["polygons"]}
+            "layout": layout, "heatmap": heatmap, "lines": cfg["zones"]["lines"], "polygons": cfg["zones"]["polygons"],
+            "profile": profile, "speed_limit": limit, "lanes": lanes_on, "invert_lanes": invert}
 
     state = {"frame": None, "infos": None, "result": None, "error": None, "done": False}
     stop = STOP
@@ -250,7 +343,7 @@ def build_ui() -> gr.Blocks:
     first = next(iter(PRESETS))
     with gr.Blocks(title="VisionTrack — démo locale") as ui:
         gr.Markdown("# VisionTrack — démo locale\n"
-                    "Détection, suivi et distance des personnes **en direct** — **100 % local, "
+                    "Personnes et véhicules : détection, suivi, distance, vitesse **en direct** — **100 % local, "
                     "aucune image envoyée dans le cloud.**")
         last = gr.State({})
 
@@ -261,7 +354,12 @@ def build_ui() -> gr.Blocks:
                                        value="Vidéo d'essai", label="Type de source")
                 preset = gr.Dropdown(list(PRESETS), value=first, label="Vidéo d'essai")
                 preset_help = help_text("Chaque essai règle automatiquement l'extrait, l'affichage, la ligne "
-                                        "de comptage et la zone. Vidéos sous licence CC BY.")
+                                        "de comptage, la zone et, pour le trafic, la vitesse et le sens des voies. "
+                                        "Vidéos sous licence CC BY.")
+                profile = gr.Radio(list(PROFILES), value=PRESETS[first].get("profile", "Personnes"),
+                                   label="Type d'analyse")
+                help_text("Personnes : distance de chaque personne. Trafic : voitures, camions, bus, motos, vélos "
+                          "et piétons, avec vitesse, excès de vitesse, contresens et débit.")
                 url = gr.Textbox(label="URL YouTube", value=BASE["source"], visible=False)
                 upload = gr.File(label="Fichier vidéo", file_types=["video"], type="filepath", visible=False)
                 cam = gr.Dropdown([0, 1, 2, 3], value=0, label="Caméra", visible=False)
@@ -305,6 +403,21 @@ def build_ui() -> gr.Blocks:
                     help_text("Côte à côte = vidéo et carte de profondeur, image deux fois plus large.")
                     heatmap = gr.Checkbox(value=PRESETS[first]["heatmap"], label="Carte de fréquentation (heatmap)")
                     help_text("Superpose les zones les plus fréquentées (plus lent).")
+                with gr.Accordion("Trafic : vitesse, excès et sens de circulation", open=False):
+                    limit = gr.Slider(0, 130, value=PRESETS[first].get("limit", 0), step=5,
+                                      label="Vitesse maximale autorisée (km/h, 0 = pas de contrôle)")
+                    help_text("Au-delà, le véhicule passe en rouge avec « EXCES DE VITESSE » (après 0,7 s confirmées).")
+                    lanes_on = gr.Checkbox(value=PRESETS[first].get("lanes", False),
+                                           label="Vérifier le sens de circulation")
+                    help_text("Utilise les voies et leur sens autorisé définis par l'essai (flèches vertes). "
+                              "Un véhicule à rebours déclenche « CONTRESENS ».")
+                    invert = gr.Checkbox(value=PRESETS[first].get("invert", False),
+                                         label="Simulation : inverser le sens autorisé des voies")
+                    help_text("Pour démontrer l'alerte sur une vidéo sans vrai contresens : tous les véhicules "
+                              "roulent alors « à contresens ».")
+                    gr.Markdown("La vitesse est **calibrée** sur le marquage au sol quand l'essai le prévoit "
+                                "(précise), sinon **automatique** à partir des distances (approchée).",
+                                elem_classes="help")
                 with gr.Accordion("Ligne de comptage et zone interdite", open=False):
                     lp = PRESETS[first]["line"]
                     line_on = gr.Checkbox(value=lp[0], label="Ligne de comptage")
@@ -357,14 +470,19 @@ def build_ui() -> gr.Blocks:
 
         def on_preset(name):
             p = PRESETS[name]
-            return [p["start"], p["seconds"], p["layout"], p["traces"], p["heatmap"], p["line"][0],
-                    *p["line"][1], p["zone"][0], *p["zone"][1]]
+            return [p["start"], p["seconds"], p["layout"], p["traces"], p["heatmap"],
+                    p.get("profile", "Personnes"), p.get("limit", 0), p.get("lanes", False), p.get("invert", False),
+                    p.get("model", d["model"]), p.get("conf", d["confidence"]), p.get("width", BASE["resize_width"]),
+                    p.get("method", dist["method"]),
+                    p["line"][0], *p["line"][1], p["zone"][0], *p["zone"][1]]
 
-        preset.change(on_preset, preset, [start, seconds, layout, traces, heatmap, line_on, lx1, ly1, lx2, ly2,
-                                          zone_on, *zone_pts])
+        preset.change(on_preset, preset, [start, seconds, layout, traces, heatmap, profile, limit, lanes_on, invert,
+                                          model, conf, width, method, line_on, lx1, ly1, lx2, ly2, zone_on,
+                                          *zone_pts])
 
         inputs = [source_type, preset, url, upload, cam, start, seconds, realtime, model, conf, width, method, fov,
-                  height, traces, layout, heatmap, line_on, lx1, ly1, lx2, ly2, zone_on, *zone_pts]
+                  height, traces, layout, heatmap, profile, limit, lanes_on, invert, line_on, lx1, ly1, lx2, ly2,
+                  zone_on, *zone_pts]
         go.click(analyse, inputs, [live, stats, video, jsonl, last])
         halt.click(lambda: STOP.set(), None, None, queue=False)
         send.click(save_feedback, [rating, cases, comment, email, last], confirm)
@@ -376,6 +494,7 @@ def preload():
     from visiontrack.detector import build_detector
     from visiontrack.distance import _depth_model
     build_detector(BASE["detector"])
+    build_detector(TRAFFIC["detector"])
     _depth_model(BASE["distance"]["depth_model"], "cuda" if __import__("torch").cuda.device_count() > 0 else "cpu",
                  BASE["distance"].get("depth_input_size", 392))
     print("Modèles chargés : prêt pour la démo.")
