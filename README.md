@@ -52,7 +52,7 @@ python app.py   # puis ouvrir http://127.0.0.1:7860
 
 Interface Gradio pour montrer l'outil en rendez-vous, **en direct** :
 
-- **Sources** : 9 vidéos d'essai prêtes à l'emploi (suivi, distance côte à côte, comptage, zone interdite, personnes lointaines, heatmap, foule, nuit, cas difficile). Chacune règle l'extrait, la ligne et la zone. On peut aussi utiliser la **webcam** (caméra 0 à 3), une URL YouTube ou un fichier.
+- **Sources** : 9 vidéos d'essai prêtes à l'emploi (suivi, distance côte à côte, comptage, zone interdite, personnes lointaines, heatmap, foule, nuit, cas difficile). Chacune règle l'extrait, la ligne et la zone. On peut aussi utiliser la **webcam** (caméra 0 à 3), un fichier, ou **n'importe quelle URL YouTube**. Une URL YouTube est lue directement en flux, sans téléchargement : même une vidéo de plusieurs heures démarre en quelques secondes, à l'endroit choisi. Pour travailler hors ligne, mettre `youtube_mode: download` dans `config.yaml`.
 - **Affichage en direct** : l'image annotée et les statistiques (images/s, personnes, personne la plus proche, comptages, alertes) se mettent à jour pendant l'analyse. Le bouton **Arrêter** termine proprement l'analyse.
 - **Mode temps réel** : la vidéo défile à sa vitesse réelle, comme une caméra, et les images qu'on n'a pas le temps d'analyser sont sautées.
 - **Rapidité** : les modèles sont chargés au démarrage et restent en mémoire, donc chaque analyse démarre immédiatement.

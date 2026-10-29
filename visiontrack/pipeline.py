@@ -24,7 +24,8 @@ def run(cfg: dict, on_frame=None) -> dict:
 
     on_frame(image_bgr, infos) est appelé à chaque image (affichage en direct) ; s'il renvoie "stop", l'analyse s'arrête.
     """
-    cap, name = open_source(cfg["source"])
+    cap, name, start_s = open_source(cfg["source"], start=cfg.get("start_seconds") or 0,
+                                     seconds=cfg.get("max_seconds"), youtube_mode=cfg.get("youtube_mode", "stream"))
     if not cap.isOpened():
         raise RuntimeError(f"Impossible d'ouvrir la source : {cfg['source']}")
 
@@ -33,9 +34,9 @@ def run(cfg: dict, on_frame=None) -> dict:
     src_fps = src_fps if src_fps and src_fps > 0 else 30
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     total = total if total > 0 else None
-    start = int((cfg.get("start_seconds") or 0) * src_fps)
+    start = int(start_s * src_fps)
     if start:
-        cap.set(cv2.CAP_PROP_POS_FRAMES, start)
+        cap.set(cv2.CAP_PROP_POS_MSEC, start_s * 1000)  # fonctionne aussi sur un flux YouTube distant
     max_frames = int(cfg["max_seconds"] * src_fps) if cfg.get("max_seconds") else None
     if total:
         max_frames = min(max_frames or total, total - start)
