@@ -454,7 +454,7 @@ def traffic_scenes() -> list[dict]:
         {"kind": "clip", "path": "pipeline_trafic.mp4"},
         scene("t1_vitesse", names[0], 20, 12, "Vitesse de chaque véhicule",
               "Calibrée sur le marquage au sol : 2 voies de 3,5 m — comptage et débit sur la ligne blanche"),
-        scene("t2_exces", names[1], 32, 10, "Excès de vitesse",
+        scene("t2_exces", names[1], 20, 10, "Excès de vitesse",
               "Vitesse maximale réglable (ici 30 km/h pour la démonstration) : alerte confirmée après 0,7 s"),
         scene("t3_contresens", names[2], 100, 10, "Contresens",
               "Sens autorisé défini par voie (flèches) — simulation : sens inversé pour déclencher l'alerte"),

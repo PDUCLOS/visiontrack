@@ -1,11 +1,15 @@
 # VisionTrack
 
-Détection, tracking et estimation de distance de personnes en temps réel, sur GPU NVIDIA grand public.
+Détection, tracking et estimation de distance de personnes, et vitesse, excès de vitesse, contresens et comptage de véhicules, en temps réel sur GPU NVIDIA grand public.
 **100 % local** : aucune image ne quitte le site.
 
 [![Vidéo de démo VisionTrack — cliquer pour la regarder](docs/images/demo_poster.jpg)](https://github.com/PDUCLOS/visiontrack/releases/download/v0.2.0/visiontrack_demo_web.mp4)
 
 ▶ **[Voir la vidéo de démo (2 min 24)](https://github.com/PDUCLOS/visiontrack/releases/download/v0.2.0/visiontrack_demo_web.mp4)** : pipeline, 8 exemples (suivi, distance, foule dense, nuit, comptage, zone interdite, heatmap), réglages et comparatif rapide / précision. [Version 1080p](https://github.com/PDUCLOS/visiontrack/releases/download/v0.2.0/visiontrack_demo.mp4) · [Release v0.2.0](https://github.com/PDUCLOS/visiontrack/releases/tag/v0.2.0)
+
+[![Vidéo de démo véhicules — cliquer pour la regarder](docs/images/demo_trafic_poster.jpg)](https://github.com/PDUCLOS/visiontrack/releases/download/v0.3.0/visiontrack_trafic_demo_web.mp4)
+
+▶ **[Voir la démo véhicules (1 min 47)](https://github.com/PDUCLOS/visiontrack/releases/download/v0.3.0/visiontrack_trafic_demo_web.mp4)** : vitesse calibrée, excès de vitesse, contresens (simulation), carrefour et rond-point vus du ciel, voie rapide sans calibration. [Version 1080p](https://github.com/PDUCLOS/visiontrack/releases/download/v0.3.0/visiontrack_trafic_demo.mp4) · [Release v0.3.0](https://github.com/PDUCLOS/visiontrack/releases/tag/v0.3.0)
 
 ![Démo VisionTrack — rue piétonne de Chelmsford](docs/images/demo_chelmsford.png)
 
@@ -92,7 +96,7 @@ python app.py   # puis ouvrir http://127.0.0.1:7860
 
 Interface Gradio pour montrer l'outil en rendez-vous, **en direct** :
 
-- **Sources** : 9 vidéos d'essai prêtes à l'emploi (suivi, distance côte à côte, comptage, zone interdite, personnes lointaines, heatmap, foule, nuit, cas difficile). Chacune règle l'extrait, la ligne et la zone. On peut aussi utiliser la **webcam** (caméra 0 à 3), un fichier, ou **n'importe quelle URL YouTube**. Une URL YouTube est lue directement en flux, sans téléchargement : même une vidéo de plusieurs heures démarre en quelques secondes, à l'endroit choisi. Pour travailler hors ligne, mettre `youtube_mode: download` dans `config.yaml`.
+- **Sources** : 15 vidéos d'essai prêtes à l'emploi : 9 pour les personnes (suivi, distance côte à côte, comptage, zone interdite, personnes lointaines, heatmap, foule, nuit, cas difficile) et 6 pour le trafic (vitesse, excès de vitesse, contresens, carrefour et rond-point vus du ciel, voie rapide). Le choix « Type d'analyse » bascule entre Personnes et Trafic, et le volet « Trafic » règle la vitesse maximale et le sens des voies. Chaque essai règle l'extrait, la ligne et la zone. On peut aussi utiliser la **webcam** (caméra 0 à 3), un fichier, ou **n'importe quelle URL YouTube**. Une URL YouTube est lue directement en flux, sans téléchargement : même une vidéo de plusieurs heures démarre en quelques secondes, à l'endroit choisi. Pour travailler hors ligne, mettre `youtube_mode: download` dans `config.yaml`.
 - **Affichage en direct** : l'image annotée et les statistiques (images/s, personnes, personne la plus proche, comptages, alertes) se mettent à jour pendant l'analyse. Le bouton **Arrêter** termine proprement l'analyse.
 - **Mode temps réel** : la vidéo défile à sa vitesse réelle, comme une caméra, et les images qu'on n'a pas le temps d'analyser sont sautées.
 - **Rapidité** : les modèles sont chargés au démarrage et restent en mémoire, donc chaque analyse démarre immédiatement.
@@ -136,6 +140,7 @@ Tous ces réglages se trouvent dans `config.yaml`.
 ```bash
 python demo/make_demo.py          # environ 2 minutes, en 1920×1080 H.264
 python demo/make_demo.py --force  # recalcule toutes les scènes
+python demo/make_demo.py --profile trafic   # démo véhicules, environ 1 min 47
 ```
 
 Le script fait tourner le vrai pipeline sur chaque scène, puis monte une vidéo de présentation dans `outputs/demo/visiontrack_demo.mp4` : titre, schéma du pipeline, 8 exemples (suivi, distance, foule dense, nuit, comptage ×2, zone interdite, heatmap), réglages, comparatif rapide / précision, et conclusion. Les vidéos sources sont sous licence CC BY et créditées à l'écran.
