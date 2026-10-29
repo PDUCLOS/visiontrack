@@ -17,6 +17,7 @@ def main():
     p.add_argument("--model", help="taille / poids du détecteur")
     p.add_argument("--distance", choices=["pinhole", "depth", "fusion", "none"])
     p.add_argument("--show", action="store_true", help="affiche la vidéo en direct")
+    p.add_argument("--realtime", action="store_true", help="vitesse réelle : saute des images si besoin")
     a = p.parse_args()
 
     with open(a.config, encoding="utf-8") as f:
@@ -35,6 +36,8 @@ def main():
         cfg["distance"]["method"] = a.distance
     if a.show:
         cfg["output"]["show"] = True
+    if a.realtime:
+        cfg["realtime"] = True
 
     out = run(cfg)
     if out["video"]:

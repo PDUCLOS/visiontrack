@@ -19,14 +19,20 @@ from .sources import open_source
 from .zones import Zones
 
 
-def run(cfg: dict) -> dict:
-    """Traite la source et renvoie {"video": chemin MP4 ou None, "jsonl": chemin ou None, "fps": vitesse, "frames": n}."""
+def run(cfg: dict, on_frame=None) -> dict:
+    """Traite la source et renvoie {"video": chemin MP4 ou None, "jsonl": chemin ou None, "fps": vitesse, "frames": n}.
+
+    on_frame(image_bgr, infos) est appelé à chaque image (affichage en direct) ; s'il renvoie "stop", l'analyse s'arrête.
+    """
     cap, name = open_source(cfg["source"])
     if not cap.isOpened():
         raise RuntimeError(f"Impossible d'ouvrir la source : {cfg['source']}")
 
-    src_fps = cap.get(cv2.CAP_PROP_FPS) or 30
-    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or None
+    # une webcam ou un flux renvoient souvent -1 ou 0 : on suppose 30 i/s et une durée inconnue
+    src_fps = cap.get(cv2.CAP_PROP_FPS)
+    src_fps = src_fps if src_fps and src_fps > 0 else 30
+    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    total = total if total > 0 else None
     start = int((cfg.get("start_seconds") or 0) * src_fps)
     if start:
         cap.set(cv2.CAP_PROP_POS_FRAMES, start)
@@ -60,10 +66,13 @@ def run(cfg: dict) -> dict:
               if cfg["output"]["video"] else None)
     jsonl = open(out_dir / f"{stem}.jsonl", "w", encoding="utf-8") if cfg["output"]["json"] else None
 
-    fps_ema, idx = None, 0
+    # temps réel (fichiers) : comme une vraie caméra, on saute les images qu'on n'a pas le temps de traiter
+    realtime = bool(cfg.get("realtime")) and total is not None
+    fps_ema, idx, pos = None, 0, 0  # idx = images traitées, pos = position dans l'extrait
+    wall0 = time.perf_counter()
     bar = tqdm(total=max_frames, unit="img")
     try:
-        while ok and (max_frames is None or idx < max_frames):
+        while ok and (max_frames is None or pos < max_frames):
             t0 = time.perf_counter()
             # une seule conversion BGR → tenseur RGB GPU, partagée par le détecteur et la profondeur
             tensor = torch.from_numpy(frame).to(device, non_blocking=True).permute(2, 0, 1).flip(0).float() / 255
@@ -81,14 +90,28 @@ def run(cfg: dict) -> dict:
             if writer:
                 writer.write(out)
             if jsonl:
-                jsonl.write(json.dumps(_record(idx, idx / src_fps, det, dist, inside, zones)) + "\n")
+                jsonl.write(json.dumps(_record(idx, pos / src_fps, det, dist, inside, zones)) + "\n")
             if cfg["output"]["show"]:
                 cv2.imshow("VisionTrack", out)
                 if cv2.waitKey(1) & 0xFF in (27, ord("q")):
                     break
+            if on_frame is not None:
+                finite = dist[np.isfinite(dist)]
+                infos = {"frame": pos + 1, "total": max_frames, "fps": fps_ema, "people": len(det),
+                         "closest_m": float(finite.min()) if finite.size else None,
+                         "lines": zones.counts(), "zones": inside}
+                if on_frame(out, infos) == "stop":
+                    break
 
-            idx += 1
-            bar.update(1)
+            idx, pos = idx + 1, pos + 1
+            skipped = 0
+            if idx == 1:  # la 1re image inclut le préchauffage des modèles : on démarre l'horloge après
+                wall0 = time.perf_counter() - pos / src_fps
+            if realtime:
+                target = int((time.perf_counter() - wall0) * src_fps)
+                while pos < target and (max_frames is None or pos < max_frames) and cap.grab():
+                    pos, skipped = pos + 1, skipped + 1
+            bar.update(1 + skipped)
             bar.set_postfix(fps=f"{fps_ema:.1f}", personnes=len(det))
             ok, frame = cap.read()
             if ok:
@@ -103,7 +126,9 @@ def run(cfg: dict) -> dict:
         cv2.destroyAllWindows()
 
     print(f"{idx} images traitées — vitesse moyenne du pipeline ~ {fps_ema:.1f} FPS")
-    return {"video": out_dir / f"{stem}.mp4" if writer else None,
+    # en temps réel, la vidéo annotée contient moins d'images que l'extrait : cadence réelle à appliquer à la lecture
+    video_fps = idx / (pos / src_fps) if (realtime and pos) else src_fps
+    return {"video": out_dir / f"{stem}.mp4" if writer else None, "video_fps": video_fps, "src_fps": src_fps,
             "jsonl": out_dir / f"{stem}.jsonl" if jsonl else None,
             "fps": fps_ema, "frames": idx}
 

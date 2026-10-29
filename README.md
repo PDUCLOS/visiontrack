@@ -50,7 +50,16 @@ Les résultats sont écrits dans `outputs/`, et les vidéos YouTube sont mises e
 python app.py   # puis ouvrir http://127.0.0.1:7860
 ```
 
-Interface Gradio pour montrer l'outil en rendez-vous : choix de la source (YouTube, fichier, webcam), tous les réglages avec leur explication, vidéo annotée et statistiques (personnes, comptages, alertes, distance minimale), export JSON, et formulaire « Votre avis » enregistré localement dans `feedback/feedback.jsonl`. Rien n'est envoyé sur le réseau.
+Interface Gradio pour montrer l'outil en rendez-vous, **en direct** :
+
+- **Sources** : 9 vidéos d'essai prêtes à l'emploi (suivi, distance côte à côte, comptage, zone interdite, personnes lointaines, heatmap, foule, nuit, cas difficile). Chacune règle l'extrait, la ligne et la zone. On peut aussi utiliser la **webcam** (caméra 0 à 3), une URL YouTube ou un fichier.
+- **Affichage en direct** : l'image annotée et les statistiques (images/s, personnes, personne la plus proche, comptages, alertes) se mettent à jour pendant l'analyse. Le bouton **Arrêter** termine proprement l'analyse.
+- **Mode temps réel** : la vidéo défile à sa vitesse réelle, comme une caméra, et les images qu'on n'a pas le temps d'analyser sont sautées.
+- **Rapidité** : les modèles sont chargés au démarrage et restent en mémoire, donc chaque analyse démarre immédiatement.
+- **Après l'analyse** : résumé, vidéo annotée complète et export JSON.
+- **Retours** : formulaire « Votre avis » enregistré localement dans `feedback/feedback.jsonl`. Rien n'est envoyé sur le réseau.
+
+En ligne de commande, l'équivalent est `python run.py --source 0 --show --realtime` pour la webcam dans une fenêtre.
 
 ## Estimation de distance
 

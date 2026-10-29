@@ -5,6 +5,7 @@
 source: "https://www.youtube.com/watch?v=Zeew8NpJb50"  # Chelmsford High Street, CC BY
 start_seconds: 0        # début de l'extrait
 max_seconds: 30         # durée traitée (null = toute la vidéo)
+realtime: false         # true : vitesse réelle de la vidéo (images sautées si besoin, comme une caméra)
 resize_width: 1280      # redimensionne l'image avant traitement (null = taille d'origine)
 
 output:

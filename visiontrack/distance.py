@@ -51,6 +51,17 @@ class DepthEstimator:
         return cv2.applyColorMap((norm * 255).astype(np.uint8), cv2.COLORMAP_INFERNO)
 
 
+_DEPTH_CACHE: dict = {}
+
+
+def _depth_model(model_id: str, device: str, input_size: int) -> DepthEstimator:
+    """Modèle de profondeur gardé en mémoire entre deux analyses."""
+    key = (model_id, device, input_size)
+    if key not in _DEPTH_CACHE:
+        _DEPTH_CACHE[key] = DepthEstimator(model_id, device, input_size)
+    return _DEPTH_CACHE[key]
+
+
 def sample_boxes(depth: np.ndarray, boxes: np.ndarray, frame_size: tuple[int, int]) -> np.ndarray:
     """Valeur médiane de profondeur au centre du torse de chaque boîte (carte à n'importe quelle résolution)."""
     w, h = frame_size
@@ -72,7 +83,7 @@ class DistanceEstimator:
         w, h = frame_size
         self.frame_size = frame_size
         self.focal_px = (w / 2) / math.tan(math.radians(cfg["horizontal_fov_deg"]) / 2)
-        self.depth = (DepthEstimator(cfg["depth_model"], device, cfg.get("depth_input_size", 392))
+        self.depth = (_depth_model(cfg["depth_model"], device, cfg.get("depth_input_size", 392))
                       if self.method in ("depth", "fusion") else None)
         self.every_n = cfg.get("depth_every_n_frames", 1)
         self.scale = None          # facteur relatif → mètres (fusion), lissé dans le temps

@@ -47,6 +47,16 @@ class YOLODetector:
         return sv.Detections.from_ultralytics(result)
 
 
+_CACHE: dict = {}
+
+
 def build_detector(cfg: dict):
+    """Les modèles restent en mémoire entre deux analyses (interface de démo) : seul le seuil change."""
     backends = {"rfdetr": RFDETRDetector, "yolo": YOLODetector}
-    return backends[cfg["backend"]](cfg["model"], cfg["classes"], cfg["confidence"], cfg.get("optimize", True))
+    key = (cfg["backend"], cfg["model"], tuple(cfg["classes"]), cfg.get("optimize", True))
+    if key not in _CACHE:
+        _CACHE[key] = backends[cfg["backend"]](cfg["model"], cfg["classes"], cfg["confidence"],
+                                               cfg.get("optimize", True))
+    detector = _CACHE[key]
+    detector.confidence = cfg["confidence"]
+    return detector
