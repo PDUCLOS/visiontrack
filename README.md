@@ -141,7 +141,10 @@ Tous ces réglages se trouvent dans `config.yaml`.
 python demo/make_demo.py          # environ 2 minutes, en 1920×1080 H.264
 python demo/make_demo.py --force  # recalcule toutes les scènes
 python demo/make_demo.py --profile trafic   # démo véhicules, environ 1 min 47
+python demo/make_reel.py                    # bande-démo rythmée de 72 s (à lancer après les deux démos)
 ```
+
+La bande-démo enchaîne une accroche, 17 exemples de 3,4 s (vitesse, infractions, flux, personnes), trois bénéfices chiffrés et un appel à l'action. Pour chaque extrait, le passage le plus parlant est choisi à partir du JSON du pipeline, et le chiffre incrusté (vitesse max, alertes, véhicules à l'image) vient de ces mêmes données.
 
 Le script fait tourner le vrai pipeline sur chaque scène, puis monte une vidéo de présentation dans `outputs/demo/visiontrack_demo.mp4` : titre, schéma du pipeline, 8 exemples (suivi, distance, foule dense, nuit, comptage ×2, zone interdite, heatmap), réglages, comparatif rapide / précision, et conclusion. Les vidéos sources sont sous licence CC BY et créditées à l'écran.
 
