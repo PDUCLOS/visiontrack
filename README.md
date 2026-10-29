@@ -3,6 +3,12 @@
 Détection, tracking et estimation de distance de personnes, et vitesse, excès de vitesse, contresens et comptage de véhicules, en temps réel sur GPU NVIDIA grand public.
 **100 % local** : aucune image ne quitte le site.
 
+[![Bande-démo VisionTrack — cliquer pour la regarder](docs/images/reel_poster.jpg)](https://github.com/PDUCLOS/visiontrack/releases/download/v0.3.1/visiontrack_reel_web.mp4)
+
+▶ **[Voir la bande-démo (72 s)](https://github.com/PDUCLOS/visiontrack/releases/download/v0.3.1/visiontrack_reel_web.mp4)** : 17 exemples en 4 chapitres (vitesse, infractions, flux, personnes), chiffres mesurés incrustés. [Version 1080p](https://github.com/PDUCLOS/visiontrack/releases/download/v0.3.1/visiontrack_reel.mp4) · [Release v0.3.1](https://github.com/PDUCLOS/visiontrack/releases/tag/v0.3.1)
+
+Démos détaillées :
+
 [![Vidéo de démo VisionTrack — cliquer pour la regarder](docs/images/demo_poster.jpg)](https://github.com/PDUCLOS/visiontrack/releases/download/v0.2.0/visiontrack_demo_web.mp4)
 
 ▶ **[Voir la vidéo de démo (2 min 24)](https://github.com/PDUCLOS/visiontrack/releases/download/v0.2.0/visiontrack_demo_web.mp4)** : pipeline, 8 exemples (suivi, distance, foule dense, nuit, comptage, zone interdite, heatmap), réglages et comparatif rapide / précision. [Version 1080p](https://github.com/PDUCLOS/visiontrack/releases/download/v0.2.0/visiontrack_demo.mp4) · [Release v0.2.0](https://github.com/PDUCLOS/visiontrack/releases/tag/v0.2.0)
