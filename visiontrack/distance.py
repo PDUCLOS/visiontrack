@@ -51,6 +51,10 @@ class DepthEstimator:
         return cv2.applyColorMap((norm * 255).astype(np.uint8), cv2.COLORMAP_INFERNO)
 
 
+# hauteurs réelles moyennes (m) utilisées par la méthode géométrique
+DEFAULT_HEIGHTS_M = {"person": 1.70, "bicycle": 1.10, "car": 1.90, "motorcycle": 1.30, "bus": 3.00,
+                     "truck": 3.20}
+
 _DEPTH_CACHE: dict = {}
 
 
@@ -79,6 +83,8 @@ class DistanceEstimator:
     def __init__(self, cfg: dict, frame_size: tuple[int, int], device: str = "cuda"):
         self.method = cfg["method"]
         self.person_h = cfg["person_height_m"]
+        # hauteur de référence par classe pour la méthode géométrique (la personne garde son réglage dédié)
+        self.heights = {**DEFAULT_HEIGHTS_M, **(cfg.get("object_heights_m") or {}), "person": self.person_h}
         self.alpha = cfg["smoothing"]
         w, h = frame_size
         self.frame_size = frame_size
@@ -99,18 +105,21 @@ class DistanceEstimator:
             self.depth_color = self.depth.colorize(self.depth_map)
         return self.depth_color
 
-    def pinhole(self, boxes: np.ndarray) -> np.ndarray:
-        heights = np.maximum(boxes[:, 3] - boxes[:, 1], 1)
-        return self.focal_px * self.person_h / heights
+    def pinhole(self, boxes: np.ndarray, names=None) -> np.ndarray:
+        heights_px = np.maximum(boxes[:, 3] - boxes[:, 1], 1)
+        real = (np.array([self.heights.get(n, self.person_h) for n in names]) if names is not None
+                else self.person_h)
+        return self.focal_px * real / heights_px
 
-    def _fully_visible(self, boxes: np.ndarray) -> np.ndarray:
-        """Personne entière : boîte loin des bords et proportions d'une silhouette debout.
-        Une boîte trop « carrée » signale une personne masquée (table, voiture…) : la hauteur ne vaut plus 1,70 m."""
+    def _fully_visible(self, boxes: np.ndarray, names=None) -> np.ndarray:
+        """Objet entier : boîte loin des bords. Pour une personne, proportions d'une silhouette debout :
+        une boîte trop « carrée » signale une personne masquée (table, voiture…) dont la hauteur ne vaut plus 1,70 m."""
         w, h = self.frame_size
         m = 4
         inside = (boxes[:, 1] > m) & (boxes[:, 3] < h - m) & (boxes[:, 0] > m) & (boxes[:, 2] < w - m)
         ratio = (boxes[:, 3] - boxes[:, 1]) / np.maximum(boxes[:, 2] - boxes[:, 0], 1)
-        return inside & (ratio > 2.0)
+        person = np.array([n == "person" for n in names]) if names is not None else np.ones(len(boxes), bool)
+        return inside & np.where(person, ratio > 2.0, ratio > 0.25)
 
     def __call__(self, frame: torch.Tensor, det: sv.Detections) -> np.ndarray:
         if self.depth is not None and self._frame % self.every_n == 0:
@@ -121,23 +130,24 @@ class DistanceEstimator:
             return np.full(len(det), np.nan)
 
         boxes = det.xyxy
-        geo = self.pinhole(boxes)
+        names = det.data.get("class_name")
+        geo = self.pinhole(boxes, names)
+        full = self._fully_visible(boxes, names)
         if self.method == "pinhole":
-            raw = np.where(self._fully_visible(boxes), geo, np.nan)
+            raw = np.where(full, geo, np.nan)
         else:
             vals = sample_boxes(self.depth_map, boxes, self.frame_size)
             if self.depth.metric:
                 raw = vals
             else:
                 # profondeur relative ≈ inverse de la distance : d = k / v
-                ok = self._fully_visible(boxes) & (vals > 0)
+                ok = full & (vals > 0)
                 if ok.any():
                     k = float(np.median(geo[ok] * vals[ok]))
                     self.scale = k if self.scale is None else 0.9 * self.scale + 0.1 * k
                 raw = self.scale / np.maximum(vals, 1e-6) if self.scale else np.full(len(boxes), np.nan)
             if self.method == "fusion":
-                # moyenne des deux quand la personne est entièrement visible
-                full = self._fully_visible(boxes)
+                # moyenne des deux quand l'objet est entièrement visible
                 raw = np.where(full, np.where(np.isfinite(raw), 0.5 * raw + 0.5 * geo, geo), raw)
 
         return self._smooth(det.tracker_id, raw)

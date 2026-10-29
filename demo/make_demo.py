@@ -48,7 +48,8 @@ NO_ZONES = {"lines": [], "polygons": []}
 
 SCENES = [
     {"kind": "title", "seconds": 4.5},
-    {"kind": "pipeline", "seconds": 8},
+    {"kind": "pipeline", "seconds": 5},
+    {"kind": "clip", "path": "pipeline_rue.mp4"},  # animation du pipeline sur une vraie image (pipeline_animation.py)
     {"kind": "scene", "name": "01_suivi",
      "title": "Détection et suivi en temps réel",
      "subtitle": "Chaque personne reçoit un identifiant stable, sa trajectoire et sa distance",
@@ -108,6 +109,7 @@ SCENES = [
                "cfg": {"source": MONTREAL, "start_seconds": 0, "max_seconds": 8, "zones": NO_ZONES,
                        "detector": {"model": "large", "confidence": 0.30}, "resize_width": 1920,
                        "render": {"depth_inset": False}}}},
+    {"kind": "hardware", "seconds": 10},
     {"kind": "outro", "seconds": 7},
 ]
 
@@ -270,7 +272,57 @@ def card_outro(t: float) -> Image.Image:
     return img
 
 
-CARDS = {"title": card_title, "pipeline": card_pipeline, "settings": card_settings, "outro": card_outro}
+HW_MEASURED = [  # mesures demo/benchmark.py (RTX 4070 Ti SUPER, Ryzen 9 3900X, 32 Go)
+    ("Complet (défaut)", "medium · fusion · 1280 px", "29 i/s"),
+    ("Complet précision", "large · profondeur à chaque image", "19 i/s"),
+    ("Sans profondeur", "medium · géométrique", "36 i/s"),
+    ("Léger", "nano · 960 px", "40 i/s"),
+    ("CPU seul (sans GPU)", "nano · géométrique", "26 i/s"),
+]
+HW_RECO = [
+    ("Minimum sans GPU", "CPU 8 cœurs récent · 16 Go RAM", "comptage, zones, distance géométrique"),
+    ("Minimum complet", "RTX 3060 12 Go / 4060 · 6–8 cœurs · 16 Go", "1 caméra, toutes fonctions, ~15–22 i/s"),
+    ("Recommandé", "RTX 4070 / 4070 Ti · 8–12 cœurs · 32 Go", "1–2 caméras, 29 i/s mesurés"),
+    ("Multi-caméras", "RTX 4090 / L4 · 16 cœurs · 64 Go · TensorRT", "4–8 caméras sur site"),
+]
+
+
+def card_hardware(t: float) -> Image.Image:
+    img = Image.new("RGB", (W, H), BG)
+    d = ImageDraw.Draw(img)
+    centered(d, 60, "Quel matériel ?", font(64, True), FG)
+    centered(d, 150, "Mesuré sur le PC de démo : RTX 4070 Ti SUPER 16 Go · Ryzen 9 3900X · 32 Go — vidéo 1280 × 720",
+             font(28), MUTED)
+    # mesures (gauche)
+    x0, y0 = 120, 230
+    d.text((x0, y0), "Mesures réelles", font=font(36, True), fill=(147, 197, 253))
+    for i, (name, detail, fps) in enumerate(HW_MEASURED):
+        y = y0 + 70 + i * 92
+        d.rounded_rectangle([x0, y, x0 + 780, y + 78], 14, fill=(30, 41, 59))
+        d.text((x0 + 24, y + 10), name, font=font(30, True), fill=FG)
+        d.text((x0 + 24, y + 46), detail, font=font(22), fill=MUTED)
+        d.text((x0 + 760 - d.textlength(fps, font=font(36, True)), y + 18), fps, font=font(36, True),
+               fill=(187, 247, 208))
+    # recommandations (droite), affichées progressivement
+    x1 = 980
+    d.text((x1, y0), "Mes configurations conseillées", font=font(36, True), fill=(187, 247, 208))
+    shown = int(t / 0.8) + 1
+    for i, (name, spec, use) in enumerate(HW_RECO[:shown]):
+        y = y0 + 70 + i * 115
+        d.rounded_rectangle([x1, y, x1 + 820, y + 100], 14, fill=(20, 83, 45) if name == "Recommandé" else (30, 41, 59))
+        d.text((x1 + 24, y + 10), name, font=font(30, True), fill=FG)
+        d.text((x1 + 24, y + 48), spec, font=font(24), fill=(203, 213, 225))
+        d.text((x1 + 816 - 24 - d.textlength(use, font=font(20)), y + 14), use, font=font(20), fill=MUTED)
+    if t > 4:
+        centered(d, 860, "La mémoire GPU n'est pas le facteur limitant (< 1 Go par flux) : c'est la puissance de calcul "
+                         "et le processeur", font(26), MUTED)
+        centered(d, 910, "Détails et méthode : docs/MATERIEL.md — mesures reproductibles avec demo/benchmark.py",
+                 font(24), MUTED)
+    return img
+
+
+CARDS = {"title": card_title, "pipeline": card_pipeline, "settings": card_settings, "hardware": card_hardware,
+         "outro": card_outro}
 
 
 # ---------------------------------------------------------------- scènes calculées
@@ -395,7 +447,9 @@ def main():
         stdin=subprocess.PIPE)
     total = 0
     for s in SCENES:
-        if s["kind"] in CARDS:
+        if s["kind"] == "clip":
+            frames = read_frames(OUT / s["path"])
+        elif s["kind"] in CARDS:
             frames = card_frames(CARDS[s["kind"]], s["seconds"])
         elif s["kind"] == "scene":
             frames = scene_frames(s, results[s["name"]])

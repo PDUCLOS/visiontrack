@@ -1,4 +1,4 @@
-"""Boucle principale : source → détection → tracking → distance → zones → rendu → export."""
+"""Boucle principale : source → détection → tracking → distance → vitesse et sens → zones → rendu → export."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from .detector import build_detector
 from .distance import DistanceEstimator
 from .render import Renderer
 from .sources import open_source
+from .speed import SpeedEstimator
 from .zones import Zones
 
 
@@ -47,7 +48,7 @@ def run(cfg: dict, on_frame=None) -> dict:
     frame = _resize(frame, cfg.get("resize_width"))
     h, w = frame.shape[:2]
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda" if (torch.cuda.is_available() and torch.cuda.device_count() > 0) else "cpu"
     detector = build_detector(cfg["detector"])
     tracker_cfg = dict(cfg["tracker"])
     # le tracker ne doit pas rejeter des détections que le détecteur a volontairement gardées
@@ -56,8 +57,12 @@ def run(cfg: dict, on_frame=None) -> dict:
     tracker_cfg["high_conf_det_threshold"] = min(tracker_cfg.get("high_conf_det_threshold", 0.6), conf + 0.15)
     tracker = ByteTrackTracker(frame_rate=src_fps, **tracker_cfg)
     distance = DistanceEstimator(cfg["distance"], (w, h), device)
+    speed_cfg = cfg.get("speed") or {}
+    speed = SpeedEstimator(speed_cfg, (w, h), distance.focal_px) if speed_cfg.get("enabled") else None
     zones = Zones(cfg.get("zones"), (w, h))
-    renderer = Renderer(cfg["render"], zones)
+    zones.class_names = detector.names
+    classes = [c for c in cfg["detector"]["classes"] if c in detector.names.values()]
+    renderer = Renderer(cfg["render"], zones, speed, classes)
 
     out_dir = Path(cfg["output"]["dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -81,25 +86,39 @@ def run(cfg: dict, on_frame=None) -> dict:
             det = tracker.update(detector(tensor))
             det = det[det.tracker_id >= 0] if det.tracker_id is not None else det
             dist = distance(tensor, det)
+            t_video = pos / src_fps
+            speeds, wrong = speed.update(t_video, det, dist) if speed is not None else (None, None)
             inside = zones.update(det)
+            flow = _flow(zones, t_video)
 
             depth_color = distance.colorized() if (cfg["render"]["depth_inset"] or renderer.side_by_side) else None
-            out = renderer(frame, det, dist, depth_color, fps_ema)
+            extra = [f"Debit : {flow:.0f} vehicules/min"] if flow is not None else []
+            out = renderer(frame, det, dist, depth_color, fps_ema, speeds, wrong, extra)
             dt = time.perf_counter() - t0  # temps complet : détection, tracking, distance et rendu
             fps_ema = 1 / dt if fps_ema is None else 0.9 * fps_ema + 0.1 / dt
 
             if writer:
                 writer.write(out)
             if jsonl:
-                jsonl.write(json.dumps(_record(idx, pos / src_fps, det, dist, inside, zones)) + "\n")
+                jsonl.write(json.dumps(_record(idx, t_video, det, dist, inside, zones, speeds, wrong, speed)) + "\n")
             if cfg["output"]["show"]:
                 cv2.imshow("VisionTrack", out)
                 if cv2.waitKey(1) & 0xFF in (27, ord("q")):
                     break
             if on_frame is not None:
                 finite = dist[np.isfinite(dist)]
+                names = list(det.data.get("class_name", []))
+                moving = ([v for nm, v in zip(names, speeds) if nm != "person" and np.isfinite(v) and v > 0]
+                          if speeds is not None else [])
                 infos = {"frame": pos + 1, "total": max_frames, "fps": fps_ema, "people": len(det),
+                         "classes": {c: names.count(c) for c in classes if names.count(c)},
                          "closest_m": float(finite.min()) if finite.size else None,
+                         "mean_speed_kmh": float(np.mean(moving)) if moving else None,
+                         "flow_per_min": flow,
+                         "speeding": sorted(speed.current_speeding) if speed is not None else [],
+                         "speeding_total": len(speed.speeding_ids) if speed is not None else 0,
+                         "wrong_way": sorted(speed.current_wrong) if speed is not None else [],
+                         "speed_limit": speed.limit if speed is not None else None,
                          "lines": zones.counts(), "zones": inside}
                 if on_frame(out, infos) == "stop":
                     break
@@ -141,13 +160,31 @@ def _resize(frame: np.ndarray, width: int | None) -> np.ndarray:
     return cv2.resize(frame, (width, h), interpolation=cv2.INTER_AREA)
 
 
-def _record(idx, t, det, dist, inside, zones) -> dict:
+def _flow(zones, t_video: float) -> float | None:
+    """Débit de véhicules sur les lignes de comptage (passages par minute), piétons exclus."""
+    vehicles = [c for c, n in zones.class_names.items() if n != "person"]
+    if not zones.lines or not vehicles or t_video < 5:
+        return None
+    crossings = sum(l.in_count_per_class.get(c, 0) + l.out_count_per_class.get(c, 0)
+                    for _, l in zones.lines for c in vehicles)
+    return crossings / (t_video / 60)
+
+
+def _record(idx, t, det, dist, inside, zones, speeds=None, wrong=None, speed=None) -> dict:
+    names = det.data.get("class_name")
     tracks = []
     for i in range(len(det)):
-        tracks.append({
+        v = speeds[i] if speeds is not None else np.nan
+        track = {
             "id": int(det.tracker_id[i]) if det.tracker_id is not None else None,
-            "bbox": [round(float(v), 1) for v in det.xyxy[i]],
+            "class": str(names[i]) if names is not None else "person",
+            "bbox": [round(float(x), 1) for x in det.xyxy[i]],
             "conf": round(float(det.confidence[i]), 3) if det.confidence is not None else None,
             "distance_m": round(float(dist[i]), 2) if np.isfinite(dist[i]) else None,
-        })
+        }
+        if speed is not None:
+            track["speed_kmh"] = round(float(v), 1) if np.isfinite(v) else None
+            track["speeding"] = bool(speed.limit and np.isfinite(v) and v > speed.limit and track["class"] != "person")
+            track["wrong_way"] = bool(wrong[i])
+        tracks.append(track)
     return {"frame": idx, "t": round(t, 3), "tracks": tracks, "zones": inside, "lines": zones.counts()}

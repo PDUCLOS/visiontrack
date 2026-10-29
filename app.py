@@ -376,7 +376,7 @@ def preload():
     from visiontrack.detector import build_detector
     from visiontrack.distance import _depth_model
     build_detector(BASE["detector"])
-    _depth_model(BASE["distance"]["depth_model"], "cuda" if __import__("torch").cuda.is_available() else "cpu",
+    _depth_model(BASE["distance"]["depth_model"], "cuda" if __import__("torch").cuda.device_count() > 0 else "cpu",
                  BASE["distance"].get("depth_input_size", 392))
     print("Modèles chargés : prêt pour la démo.")
 

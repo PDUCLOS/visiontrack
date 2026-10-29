@@ -20,6 +20,46 @@ Détection, tracking et estimation de distance de personnes en temps réel, sur 
 
 Toute l'adaptation à un nouveau besoin se fait dans `config.yaml` : source vidéo, modèle, classes, zones, seuils.
 
+## Le pipeline, étape par étape
+
+Les animations ci-dessous sont produites par l'outil lui-même, sur de vraies images (`python demo/pipeline_animation.py`).
+
+| Rue piétonne | Trafic routier |
+|---|---|
+| ![Pipeline rue piétonne](docs/images/pipeline_rue.gif) | ![Pipeline trafic routier](docs/images/pipeline_trafic.gif) |
+
+## Matériel
+
+Mesuré sur le PC de démo (RTX 4070 Ti SUPER, Ryzen 9 3900X, 32 Go), en 1280×720 :
+
+- **29 images/s** pour le pipeline complet ;
+- **40 images/s** en configuration légère ;
+- **26 images/s sur CPU seul**, sans profondeur.
+
+| Besoin | Configuration conseillée |
+|---|---|
+| Minimum sans GPU (comptage, zones, distance géométrique) | CPU 8 cœurs récent, 16 Go RAM |
+| Minimum complet (1 caméra, toutes fonctions) | RTX 3060 12 Go ou RTX 4060, 6 à 8 cœurs, 16 Go RAM |
+| Recommandé (1 à 2 caméras) | RTX 4070 / 4070 Ti, 8 à 12 cœurs, 32 Go RAM |
+| Multi-caméras (4 à 8 flux) | RTX 4090 / L4, 16 cœurs, 64 Go RAM, TensorRT |
+
+Le détail des mesures, la méthode et les estimations se trouvent dans [docs/MATERIEL.md](docs/MATERIEL.md). Les mesures se reproduisent avec `python demo/benchmark.py`.
+
+## Trafic routier (profil véhicules)
+
+```bash
+python run.py --config config_trafic.yaml --source <vidéo ou URL> --show
+```
+
+Ce profil suit les voitures, camions, bus, motos et vélos (et les piétons) :
+
+- **Vitesse** de chaque véhicule, en km/h. Elle est précise avec une calibration (`speed.calibration` : 4 points sur la route et leur taille réelle), et approchée sans calibration.
+- **Excès de vitesse**, par rapport à la vitesse maximale `speed.limit_kmh`.
+- **Sens de circulation** : dans `speed.lanes`, un polygone et une flèche par voie. Un véhicule qui roule dans l'autre sens déclenche l'alerte « CONTRESENS ».
+- **Comptage par type** de véhicule, et **débit** en véhicules par minute.
+
+Hauteurs de référence pour la distance (`distance.object_heights_m`) : voiture 1,9 m, camion 3,2 m, bus 3,0 m.
+
 ## Installation (Windows / Linux, x86 + GPU NVIDIA)
 
 ```bash

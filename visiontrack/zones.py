@@ -10,12 +10,15 @@ class Zones:
     def __init__(self, cfg: dict, frame_size: tuple[int, int]):
         w, h = frame_size
         cfg = cfg or {}
+        self.class_names: dict[int, str] = {}  # id de classe COCO → nom, fourni par le pipeline
         self.lines = []
         for line in cfg.get("lines") or []:
             start = sv.Point(line["start"][0] * w, line["start"][1] * h)
             end = sv.Point(line["end"][0] * w, line["end"][1] * h)
+            # franchissement validé sur plusieurs images : une boîte qui « tremble » sur la ligne ne compte pas
             self.lines.append((line["name"], sv.LineZone(start=start, end=end,
-                                                         triggering_anchors=[sv.Position.BOTTOM_CENTER])))
+                                                         triggering_anchors=[sv.Position.BOTTOM_CENTER],
+                                                         minimum_crossing_threshold=line.get("min_frames", 4))))
         self.polygons = []
         for poly in cfg.get("polygons") or []:
             pts = (np.array(poly["points"]) * [w, h]).astype(int)
@@ -49,10 +52,27 @@ class Zones:
         return frame
 
     def summary(self) -> list[str]:
-        out = [f"Ligne {name} : {l.in_count} entrees / {l.out_count} sorties" for name, l in self.lines]
+        from .render import FR_PLURAL
+
+        out = []
+        for name, l in self.lines:
+            out.append(f"Ligne {name} : {l.in_count} entrees / {l.out_count} sorties")
+            if len(self.class_names) > 1 and (l.in_count or l.out_count):
+                per = {c: l.in_count_per_class.get(c, 0) + l.out_count_per_class.get(c, 0)
+                       for c in set(l.in_count_per_class) | set(l.out_count_per_class)}
+                out.append("   " + "  ".join(f"{FR_PLURAL.get(self.class_names.get(c, ''), c)} {k}"
+                                             for c, k in sorted(per.items(), key=lambda x: -x[1])))
         out += [f"ALERTE zone {name} : {z.current_count} personne(s)" if z.current_count
                 else f"Zone {name} : libre" for name, z in self.polygons]
         return out
 
     def counts(self) -> dict:
-        return {name: {"in": l.in_count, "out": l.out_count} for name, l in self.lines}
+        out = {}
+        for name, l in self.lines:
+            out[name] = {"in": l.in_count, "out": l.out_count}
+            if len(self.class_names) > 1:
+                out[name]["par_classe"] = {
+                    self.class_names.get(c, str(c)): {"in": l.in_count_per_class.get(c, 0),
+                                                      "out": l.out_count_per_class.get(c, 0)}
+                    for c in set(l.in_count_per_class) | set(l.out_count_per_class)}
+        return out

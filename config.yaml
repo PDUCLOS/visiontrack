@@ -49,6 +49,7 @@ render:
   inset_position: bottom_right  # bottom_right | top_right
   heatmap: false        # carte de fréquentation
   fps: true
+  hud_position: left   # left | right : côté du panneau d'informations
   distance_thresholds_m: [3.0, 8.0]  # couleurs : rouge < 3 m, orange < 8 m, vert au-delà
 
 # Coordonnées relatives (0–1) à la taille de l'image
@@ -60,3 +61,18 @@ zones:
   polygons: []
   #  - name: zone_interdite
   #    points: [[0.6, 0.5], [0.95, 0.5], [0.95, 0.95], [0.6, 0.95]]
+
+# Vitesse, excès de vitesse et sens de circulation (surtout pour les véhicules : voir config_trafic.yaml)
+speed:
+  enabled: false
+  limit_kmh: null        # vitesse maximale autorisée : au-delà, « EXCES DE VITESSE » en rouge
+  window_s: 1.5          # durée sur laquelle la vitesse est mesurée (régression linéaire)
+  smoothing: 0.6         # lissage de la vitesse affichée (0 = aucun)
+  calibration: null      # précis : 4 points image (relatifs) + taille réelle du rectangle au sol
+  #  image_points: [[0.40, 0.55], [0.60, 0.55], [0.75, 0.95], [0.25, 0.95]]  # haut-gauche, haut-droit, bas-droit, bas-gauche
+  #  width_m: 7.0         # ex. deux voies de 3,5 m
+  #  length_m: 30.0       # ex. 3 tirets + 3 espaces de marquage
+  lanes: []              # voies avec sens autorisé (contresens détecté)
+  #  - name: droite
+  #    points: [[0.5, 0.5], [0.9, 0.5], [0.95, 1.0], [0.5, 1.0]]
+  #    direction: [0, 1]   # vecteur du sens autorisé dans l'image : [0, 1] = vers le bas
