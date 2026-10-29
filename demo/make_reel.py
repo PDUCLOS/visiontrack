@@ -1,6 +1,6 @@
 """Bande-démo courte et rythmée de VisionTrack (≈ 75 s, 1920×1080, 30 i/s, H.264) pour le site freelance.
 
-Structure : accroche sur l'image → marque → 4 chapitres d'exemples courts (vitesse, infractions, flux,
+Structure : accroche sur l'image → marque → 4 chapitres d'exemples courts (vitesse, excès de vitesse, flux,
 personnes) → 3 bénéfices chiffrés → appel à l'action. Chaque extrait dure ≈ 3,4 s ; le passage le plus
 parlant de chaque scène est choisi automatiquement à partir du JSON produit par le pipeline, et le chiffre
 incrusté (vitesse max, alertes, véhicules à l'image…) vient de ces mêmes données.
@@ -57,7 +57,6 @@ def build_reel() -> list[dict]:
     T = {
         "t1": {"name": "t1_vitesse", "credit": TRAFFIC_CREDITS["MNn9qKG2UFI"]},
         "t2": {"name": "t2_exces", "credit": TRAFFIC_CREDITS["MNn9qKG2UFI"]},
-        "t3": {"name": "t3_contresens", "credit": TRAFFIC_CREDITS["MNn9qKG2UFI"]},
         "t5": {"name": "t5_rondpoint", "credit": TRAFFIC_CREDITS["JSBJskCT_-w"]},
         "t6": {"name": "t6_voie_rapide", "credit": TRAFFIC_CREDITS["BjF9vlJA7CY"]},
     }
@@ -90,11 +89,10 @@ def build_reel() -> list[dict]:
         clip(new["oslo"], "Voie rapide", "sans calibration, à partir des distances", "maxspeed", "speed"),
         clip(new["carrefour"], "Carrefour vu du ciel", "des dizaines de véhicules à la fois", "inframe"),
         clip(new["depth"], "Distance de chaque véhicule", "image + carte de profondeur", "inframe"),
-        ("sting", {"text": "Détecter les infractions", "n": "02"}),
+        ("sting", {"text": "Détecter les excès", "n": "02"}),
         clip(T["t2"], "Excès de vitesse", "limite réglable : ici 30 km/h", "alerts", "speeding"),
         clip(new["exces200"], "Alerte confirmée en 0,7 s", "pas de fausse alerte sur un pic de mesure", "alerts",
              "speeding"),
-        clip(T["t3"], "Contresens", "sens autorisé par voie (simulation)", "wrong", "wrong"),
         ("sting", {"text": "Compter les flux", "n": "03"}),
         clip(T["t1"], "Comptage sur ligne virtuelle", "par type : voitures, camions, bus…", "inframe"),
         clip(new["heat"], "Carte de chaleur", "les trajectoires les plus empruntées", "inframe"),
@@ -263,7 +261,7 @@ def card_brand(t: float) -> Image.Image:
     centered(d, 360 + int((1 - a) * 30), "VisionTrack", font(150, True), FG)
     centered(d, 560, "Vision par ordinateur en temps réel, 100 % locale", font(46), MUTED)
     if t > 0.5:
-        centered(d, 660, "Véhicules  ·  vitesse  ·  infractions  ·  flux  ·  personnes", font(36, True), ACCENT)
+        centered(d, 660, "Véhicules  ·  vitesse  ·  excès  ·  flux  ·  personnes", font(36, True), ACCENT)
     return img
 
 

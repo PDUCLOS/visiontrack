@@ -5,7 +5,7 @@ Détection, tracking et estimation de distance de personnes, et vitesse, excès 
 
 [![Bande-démo VisionTrack — cliquer pour la regarder](docs/images/reel_poster.jpg)](https://github.com/PDUCLOS/visiontrack/releases/download/v0.3.1/visiontrack_reel_web.mp4)
 
-▶ **[Voir la bande-démo (72 s)](https://github.com/PDUCLOS/visiontrack/releases/download/v0.3.1/visiontrack_reel_web.mp4)** : 17 exemples en 4 chapitres (vitesse, infractions, flux, personnes), chiffres mesurés incrustés. [Version 1080p](https://github.com/PDUCLOS/visiontrack/releases/download/v0.3.1/visiontrack_reel.mp4) · [Release v0.3.1](https://github.com/PDUCLOS/visiontrack/releases/tag/v0.3.1)
+▶ **[Voir la bande-démo (69 s)](https://github.com/PDUCLOS/visiontrack/releases/download/v0.3.1/visiontrack_reel_web.mp4)** : 16 exemples en 4 chapitres (vitesse, excès de vitesse, flux, personnes), chiffres mesurés incrustés. [Version 1080p](https://github.com/PDUCLOS/visiontrack/releases/download/v0.3.1/visiontrack_reel.mp4) · [Release v0.3.1](https://github.com/PDUCLOS/visiontrack/releases/tag/v0.3.1)
 
 Démos détaillées :
 
@@ -15,7 +15,7 @@ Démos détaillées :
 
 [![Vidéo de démo véhicules — cliquer pour la regarder](docs/images/demo_trafic_poster.jpg)](https://github.com/PDUCLOS/visiontrack/releases/download/v0.3.0/visiontrack_trafic_demo_web.mp4)
 
-▶ **[Voir la démo véhicules (1 min 47)](https://github.com/PDUCLOS/visiontrack/releases/download/v0.3.0/visiontrack_trafic_demo_web.mp4)** : vitesse calibrée, excès de vitesse, contresens (simulation), carrefour et rond-point vus du ciel, voie rapide sans calibration. [Version 1080p](https://github.com/PDUCLOS/visiontrack/releases/download/v0.3.0/visiontrack_trafic_demo.mp4) · [Release v0.3.0](https://github.com/PDUCLOS/visiontrack/releases/tag/v0.3.0)
+▶ **[Voir la démo véhicules (1 min 37)](https://github.com/PDUCLOS/visiontrack/releases/download/v0.3.0/visiontrack_trafic_demo_web.mp4)** : vitesse calibrée, excès de vitesse, carrefour et rond-point vus du ciel, voie rapide sans calibration. [Version 1080p](https://github.com/PDUCLOS/visiontrack/releases/download/v0.3.0/visiontrack_trafic_demo.mp4) · [Release v0.3.0](https://github.com/PDUCLOS/visiontrack/releases/tag/v0.3.0)
 
 ![Démo VisionTrack — rue piétonne de Chelmsford](docs/images/demo_chelmsford.png)
 
@@ -146,11 +146,11 @@ Tous ces réglages se trouvent dans `config.yaml`.
 ```bash
 python demo/make_demo.py          # environ 2 minutes, en 1920×1080 H.264
 python demo/make_demo.py --force  # recalcule toutes les scènes
-python demo/make_demo.py --profile trafic   # démo véhicules, environ 1 min 47
-python demo/make_reel.py                    # bande-démo rythmée de 72 s (à lancer après les deux démos)
+python demo/make_demo.py --profile trafic   # démo véhicules, environ 1 min 37
+python demo/make_reel.py                    # bande-démo rythmée de 69 s (à lancer après les deux démos)
 ```
 
-La bande-démo enchaîne une accroche, 17 exemples de 3,4 s (vitesse, infractions, flux, personnes), trois bénéfices chiffrés et un appel à l'action. Pour chaque extrait, le passage le plus parlant est choisi à partir du JSON du pipeline, et le chiffre incrusté (vitesse max, alertes, véhicules à l'image) vient de ces mêmes données.
+La bande-démo enchaîne une accroche, 16 exemples de 3,4 s (vitesse, excès de vitesse, flux, personnes), trois bénéfices chiffrés et un appel à l'action. Pour chaque extrait, le passage le plus parlant est choisi à partir du JSON du pipeline, et le chiffre incrusté (vitesse max, alertes, véhicules à l'image) vient de ces mêmes données.
 
 Le script fait tourner le vrai pipeline sur chaque scène, puis monte une vidéo de présentation dans `outputs/demo/visiontrack_demo.mp4` : titre, schéma du pipeline, 8 exemples (suivi, distance, foule dense, nuit, comptage ×2, zone interdite, heatmap), réglages, comparatif rapide / précision, et conclusion. Les vidéos sources sont sous licence CC BY et créditées à l'écran.
 

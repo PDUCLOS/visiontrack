@@ -96,7 +96,8 @@ PRESETS = {
         yt="W6hROZjQlEA", start=0, seconds=30, layout="inset", traces=True, heatmap=False, profile=TRAFFIC_P,
         model="large", conf=0.25, method="none",  # vue zénithale : le modèle voit surtout des toits de voitures
         render={"depth_inset": False},
-        limit=50, lanes=False, speed=CROSSROADS, line=(True, [0.45, 0.80, 0.61, 0.80]), zone=NO_ZONE),
+        # vitesse affichée sans alerte d'excès : la mesure zénithale est trop approximative pour verbaliser
+        limit=0, lanes=False, speed=CROSSROADS, line=(True, [0.45, 0.80, 0.61, 0.80]), zone=NO_ZONE),
     "Trafic — rond-point vu du ciel (comptage et fréquentation)": dict(
         yt="JSBJskCT_-w", start=0, seconds=17, layout="inset", traces=True, heatmap=True, profile=TRAFFIC_P,
         model="large", conf=0.30, method="none", render={"depth_inset": False},

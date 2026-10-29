@@ -1,6 +1,6 @@
 """Génère les vidéos de démo VisionTrack pour le site freelance (1920×1080, 30 i/s, H.264).
 
-    python demo/make_demo.py --profile trafic   # démo véhicules : vitesse, excès, contresens, comptage
+    python demo/make_demo.py --profile trafic   # démo véhicules : vitesse, excès de vitesse, comptage
 
 Montage : titre → pipeline → 5 scènes (suivi, distance, comptage, zone interdite, heatmap)
 → réglages → comparatif réglage rapide / précision → conclusion « 100 % local ».
@@ -456,8 +456,6 @@ def traffic_scenes() -> list[dict]:
               "Calibrée sur le marquage au sol : 2 voies de 3,5 m — comptage et débit sur la ligne blanche"),
         scene("t2_exces", names[1], 20, 10, "Excès de vitesse",
               "Vitesse maximale réglable (ici 30 km/h pour la démonstration) : alerte confirmée après 0,7 s"),
-        scene("t3_contresens", names[2], 100, 10, "Contresens",
-              "Sens autorisé défini par voie (flèches) — simulation : sens inversé pour déclencher l'alerte"),
         scene("t4_carrefour", names[3], 0, 12, "Carrefour vu du ciel",
               "Comptage et vitesse de dizaines de véhicules à la fois, modèle « large » adapté à la vue zénithale"),
         scene("t5_rondpoint", names[4], 0, 12, "Rond-point : fréquentation",
@@ -480,7 +478,7 @@ def main():
     args = ap.parse_args()
     if args.profile == "trafic":
         SCENES = traffic_scenes()
-        TITLE_SUB[0] = "Véhicules : détection, vitesse, excès, contresens et comptage en temps réel"
+        TITLE_SUB[0] = "Véhicules : détection, vitesse, excès de vitesse et comptage en temps réel"
     args.out = args.out or str(OUT / ("visiontrack_trafic_demo.mp4" if args.profile == "trafic"
                                       else "visiontrack_demo.mp4"))
 
