@@ -4,10 +4,21 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from urllib.parse import urlparse
 
 import cv2
 
-YOUTUBE_RE = re.compile(r"(youtube\.com|youtu\.be)", re.IGNORECASE)
+YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"}
+VIDEO_ID_RE = re.compile(r"^[\w-]{11}$")
+
+
+def is_youtube(url: str) -> bool:
+    """Hôte YouTube exact (et non « youtube.com » n'importe où dans l'adresse)."""
+    try:
+        parsed = urlparse(str(url))
+    except ValueError:
+        return False
+    return parsed.scheme in ("http", "https") and (parsed.hostname or "").lower() in YOUTUBE_HOSTS
 
 
 FULL_DOWNLOAD_MAX_S = 600  # au-delà de 10 min, on ne télécharge que l'extrait demandé
@@ -49,6 +60,8 @@ def download_youtube(url: str, cache_dir: Path, start: float = 0, seconds: float
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
     vid, duration = info["id"], info.get("duration") or 0
+    if not VIDEO_ID_RE.match(vid):  # l'identifiant sert à construire des chemins de fichiers
+        raise ValueError(f"Identifiant de vidéo YouTube inattendu : {vid!r}")
 
     full = cached_video(cache_dir, vid)
     if full:
@@ -70,7 +83,7 @@ def download_youtube(url: str, cache_dir: Path, start: float = 0, seconds: float
 
 
 def youtube_id(url: str) -> str | None:
-    m = re.search(r"(?:v=|youtu\.be/|shorts/|live/)([\w-]{11})", url)
+    m = re.search(r"(?:v=|youtu\.be/|shorts/|live/)([\w-]{11})(?![\w-])", url)
     return m.group(1) if m else None
 
 
@@ -83,7 +96,7 @@ def open_source(source, cache_dir: Path = Path("data/videos"), start: float = 0,
     """
     if isinstance(source, int) or (isinstance(source, str) and source.isdigit()):
         return cv2.VideoCapture(int(source)), f"webcam{source}", 0
-    if YOUTUBE_RE.search(str(source)):
+    if is_youtube(str(source)):
         vid = youtube_id(str(source))
         cached = cached_video(cache_dir, vid) if vid else None
         if cached:
